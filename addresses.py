@@ -4,15 +4,15 @@ Root_folder_local = ""
 Root_folder_output = "./output/"
 Root_folder_output_west = "./output/"
 ##########################################INPUT####################################################
-DC01_address = Root_Address_input + "Inventory_DC01.csv"
-DC11_address =  Root_Address_input + "Inventory_DC11.csv" 
+DC01_address = Root_Address_input + "Inventory_DC.csv"
+DC11_address =  Root_Address_input + "Inventory_DC.csv" 
 
-DC02_address = Root_Address_input + "Inventory_DC02.csv"
-DC12_address = Root_Address_input + "Inventory_DC12.csv" 
+DC02_address = Root_Address_input + "Inventory_DC.csv"
+DC12_address = Root_Address_input + "Inventory_DC.csv" 
 
-Order_address_source = Root_Address_input + "Outbound_DL_01 (822).CSV"
-Order_address = Root_Address_input + "Outbound_DL_01 (822)_withheader.CSV"
-PostCode_address = Root_Address_input + "Zip_Code East West List.csv"
+Order_address_source = Root_Address_input + "Outbound.CSV"
+Order_address = Root_Address_input + "Outbound.CSV"
+PostCode_address = Root_Address_input + "Zip_Code.csv"
 
 #########################################OUTPUT####################################################
 Output_DCx1_address = Root_folder_output

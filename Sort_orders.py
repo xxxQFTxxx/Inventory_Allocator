@@ -3,39 +3,41 @@ import json
 import base64
 from addresses import DC01_address, DC11_address
 
-X_Zsc_Authorization = 'suzuki:0000'
+X_Zsc_Authorization = ''
 X_Zsc_Authorization = bytearray(X_Zsc_Authorization, 'utf-8')
 X_Zsc_Authorization = base64.b64encode(X_Zsc_Authorization)
 X_Zsc_Authorization = X_Zsc_Authorization.decode("UTF-8")
-X_Zsc_Authorization
 
 
+#faster inventory
 #Login and obtain a token
-url_login = 'https://zaikos.azure-api.net/zsc/beautygarage/login'
-header_login = { 'Ocp-Apim-Subscription-Key' : '253ae2b9815f44f8952a42e781ca362a','Cache-Control' : 'no-cache','X-Zsc-Authorization' : 'MjAzMjoyMDMy' }
+url_login = ''
+header_login = { 'Ocp-Apim-Subscription-Key' : '','Cache-Control' : '','X-Zsc-Authorization' : '' }
 r = requests.post(url_login , headers= header_login)
 r.encoding = 'utf-8-sig' #server encoding is not UTF-8 (probably). if this is removed some strange characters show up in Token.
 jToken = json.loads(r.text)
 
 #Obtain the inventory data
-url_inv = "https://zaikos.azure-api.net/zsc/beautygarage/stocks_summary"
-SubKey_Token = { "Ocp-Apim-Subscription-Key" : "253ae2b9815f44f8952a42e781ca362a", "X-Zsc-Token" : jToken['token'] }
-#DC01
-query = {'warehouseCode': '01' , 'keycode' : ''}
+url_inv = ""
+SubKey_Token = { "Ocp-Apim-Subscription-Key" : "", "X-Zsc-Token" : jToken['token'] }
+
+
+#DC
+query = {'warehouseCode': '' , 'keycode' : ''}
 r_inv = requests.get(url_inv , headers=SubKey_Token , params=query)
 f = open(DC01_address, "w")
 f.write(r_inv.text.lstrip('\ufeff'))
 f.close()
 
-#DC11
-query = {'warehouseCode': '11' , 'keycode' : ''}
+#DC
+query = {'warehouseCode': '' , 'keycode' : ''}
 r_inv = requests.get(url_inv , headers=SubKey_Token , params=query)
 f = open(DC11_address, "w")
 f.write(r_inv.text.lstrip('\ufeff'))
 f.close()
 
 #Logout
-url_out = 'https://zaikos.azure-api.net/zsc/beautygarage/logout'
+url_out = ''
 r = requests.post(url_out , headers=SubKey_Token)
 sLogout = "Logout " + r.text
 print(sLogout)
@@ -45,7 +47,7 @@ print(sLogout)
 import pandas as pd
 import csv
 import sys
-from addresses import DC01_address, DC11_address, Order_address, Order_address_source, PostCode_address, Output_DCx1_address 
+from addresses import DC01_address, DC11_address, Order_address, Order_address_source, PostCode_address, Output_DCx1_address, Output_DCx1_address_west
 
 
 #This is the header for the East inventory
@@ -72,10 +74,13 @@ with open(DC11_address,'w',newline='', encoding="shift_jis_2004") as f:
 
 df_inv_east = pd.read_csv(DC01_address, usecols=["DC_Name","stock_no","available_qty"])
 df_inv_east.columns=["InverntoryName",  "Item code", "NumItemsAvailable"] #renames the columns
+#convert negative numbers to zero in NumItemsAvailable
+df_inv_east.NumItemsAvailable = df_inv_east.NumItemsAvailable.mask(df_inv_east.NumItemsAvailable.lt(0),0)
 
 df_inv_west = pd.read_csv(DC11_address, usecols=["DC_Name","stock_no","available_qty"])
 df_inv_west.columns=["InverntoryName",  "Item code", "NumItemsAvailable"] #renames the columns
-
+#convert negative numbers to zero in NumItemsAvailable
+df_inv_west.NumItemsAvailable = df_inv_west.NumItemsAvailable.mask(df_inv_west.NumItemsAvailable.lt(0),0)
 
 #This is the header for the Shipping order file
 header_order = ["Shipping_Order_No","Voucher_Class","Order_Date","Delivery_Date","Planed_Ship_Date","DC_Code","DC_Name","Customer_Code","Customer_Name1","Customer_Name2","Data_11","Data_12","Data_13","Data_14","Customer_Zip_Code","Customer_address1","Customer_address2","Customer_TEL","Customer_FAX","Order_No","Transport_Company","Receiver_Code","Receiver_Name1","Receiver_Name2","Data_25","Data_26","Data_27","Data_28","Receiver_Zip_Code","Receiver_address1","Receiver_address2","Receiver_TEL","Receiver_FAX","Consumption_TAX","Data_35","Data_36","Mail_address","Point","Data_39","SAP_Shipping_No","Data_41","Working_Condition","Balance","Data_44","Data_45","Data_46","Data_47","Update_date","Detail_No","Data_50","Stock_No","BarCode","Location","Description1","Description2","Pcs_Per_case","Case_No","Quantity","Units","Lot1","Lot2","Status_Code","Status","Data_64","Data_65","Data_66","Warranty","Data_68","Data_69","Detail_Update_date"]
@@ -89,12 +94,13 @@ with open(Order_address,'w',newline='',encoding="shift_jis_2004") as f:
     w.writerow(header_order)
     w.writerows(data)
 
-df_order = pd.read_csv(Order_address, encoding="shift_jis_2004",converters={'Receiver_Zip_Code': lambda x: x.strip('”'),'Shipping_Order_No': lambda x: x.strip('”'),'Stock_No': lambda x: x.strip('”'),'Quantity': lambda x: int(x.strip('”')) })
+df_order = pd.read_csv(Order_address, encoding="shift_jis_2004",converters={'Receiver_Zip_Code': lambda x: x.strip('”'),'Shipping_Order_No': lambda x: x.strip('”'),'Stock_No': lambda x: x.strip('”'),'Quantity': lambda x: int(x.strip('”')), 'Receiver_TEL': lambda x: str(x) })
 df_order = df_order.rename(columns={'Stock_No': 'item code', 'Quantity' : 'NumItemsNeeded'}) #I will just rename these columns since at earler versions of the code these names were used and changing them in the code now, might alter the dynamics.
 
 df_postal = pd.read_csv(PostCode_address, converters={'Zip_Code 3degit': lambda x: str(x)}, usecols= ["Zip_Code 3degit", "East/West"]) #Reading the Post code file
 df_postal.columns=["PostCode", "East_West"] #renames the columns
-df_postal = df_postal.drop_duplicates(keep='first',ignore_index = True)#probably not needed
+df_postal = df_postal.drop_duplicates(keep='first')#probably not needed
+
 
 #Let's import these data into a class for better access
 class order:
@@ -138,7 +144,7 @@ def get_items(List_of_index_orders):
                         df_order.at[j,'Status_Code'],df_order.at[j,'Status'],df_order.at[j,'Data_64'],df_order.at[j,'Data_65'],\
                         df_order.at[j,'Data_66'],df_order.at[j,'Warranty'],df_order.at[j,'Data_68'],df_order.at[j,'Data_69'],\
                         df_order.at[j,'Detail_Update_date']]   ]) #these other information has to be in a list because I have to write down an _ later on
-            
+                        #update,v111: data 35 now will named EW to indicate that an order has been split or not
         list_items.append(temp.copy())
         temp.clear()
     return list_items     
@@ -167,7 +173,7 @@ def remove_duplicates(order): #Check for any duplicates of items of an order
                     order.items[i][1] = order.items[i][1] + order.items[j][1]
                     duplicates.append(order.items[j])
     for item in duplicates:
-        print("removing", item)
+        #print("removing", item)
         order.items.remove(item)
 
 def EastOrWest(order):
@@ -183,7 +189,7 @@ def EastOrWest(order):
             return 0 # returns 1 for East and 0 for West
     else:
         #raise NameError('First three digits', str(FirstThreeDigit), 'was not found in postal code list.')
-        print('First three digits', str(FirstThreeDigit), 'was not found in postal code list. \nSending order number ',order.order_num,'to east.')
+        #print('First three digits', str(FirstThreeDigit), 'was not found in postal code list. \nSending order number ',order.order_num,'to east.')
         return 1
 
 def update_inv(order): #this function will updates inventory 
@@ -215,7 +221,7 @@ def Item_available_east(Item_code, Num_items_ordered):
         
     else:
         Items_not_in_inv_east.append(Item_code)
-        print('One items', Item_code, 'was not found in east inventory.')
+        #print('One items', Item_code, 'was not found in east inventory.')
         
 def check_inv_east(order):
     for item in order.items:
@@ -245,7 +251,7 @@ def Item_available_west(Item_code, Num_items_ordered):
         
     else:       
         Items_not_in_inv_east.append(Item_code)
-        print('One items', Item_code, 'was not found in west inventory.')
+        #print('One items', Item_code, 'was not found in west inventory.')
 
 def check_inv_west(order):
     for item in order.items:
@@ -269,10 +275,10 @@ def split_order(order):
                     if(Item_available_west(item[0],item[1])): #item[0] = Code, item[1] = Num_items_ordered
                         item[2] = True #availability
                         item[3] = "West" #Location
-                    else:
-                        print("Not enough items in both inventory for item",item,"in order",order.order_num)
-                elif(item[0] not in df_inv_west['Item code'].tolist()):
-                    print("item does not exist in west inv")
+                    #else:
+                        #print("Not enough items in both inventory for item",item,"in order",order.order_num)
+                #elif(item[0] not in df_inv_west['Item code'].tolist()):
+                    #print("item does not exist in west inv")
 
                 else:
                     if(item[0] in df_inv_west['Item code'].tolist()): #checks if item exists in west inv
@@ -282,21 +288,28 @@ def split_order(order):
 
                             #there are enough items in both inventories
                             new_item_east = [item[0], df_inv_east.at[Index_item_inv_east , 'NumItemsAvailable'], True, "East", item[4]]
-                            new_item_west = [item[0], item[1]-df_inv_east.at[Index_item_inv_west , 'NumItemsAvailable'], True, "West", item[4]]
-                            print("removing the parent order and replacing it with split order for order number:", order.order_num, item[0])
+                            new_item_west = [item[0], item[1]-df_inv_east.at[Index_item_inv_east , 'NumItemsAvailable'], True, "West", item[4]]
+                            #print("removing the parent order and replacing it with split order for order number:", order.order_num, item[0])
                             original_item2be_split.append(item)
                             order.items.append(new_item_east)
                             order.items.append(new_item_west)
-                    else:
-                        print("item",item[0],"doesnot exist in west(split order). CANNOT BE SPLIT")
+
+                    #else:
+                        #print("item",item[0],"doesnot exist in west(split order). CANNOT BE SPLIT")
                             
             else: #does not exist in East inv
-                print("item",item[0],"doesnot exist in east in split order.")
+                #print("item",item[0],"doesnot exist in east in split order.")
+                if(item[0] in df_inv_west['Item code'].tolist()): #checks if item exists in west inv
+                    Index_item_inv_west = df_inv_west.index[df_inv_west['Item code'] == item[0]].tolist()[0] #index of the item in west inventory
+                    if(Item_available_west(item[0],item[1])):
+                        item[2] = True #availability
+                        item[3] = "West" #Location
                 
     for item in original_item2be_split:
         order.items.remove(item)
                     
     return order
+
 #______________________________________Main___________________________________________
 Complete_orders = list()
 Incomplete_orders = list()
@@ -348,10 +361,6 @@ lComplete_orders = list()
 temp = list()
 for order in Complete_orders:
     for i in range(len(order.items)):
-        order.items[i][0] = '”' + order.items[i][0] + '”' #adds ” to code_name and numitemsneeded
-        order.items[i][1] = '”' + str(order.items[i][1]) + '”'
-        print(order.items[i])
-
         temp = [order.order_num, \
                 order.items[i][4][0],order.items[i][4][1],order.items[i][4][2],order.items[i][4][3],\
                 order.items[i][4][4],order.items[i][4][5],order.items[i][4][6],order.items[i][4][7],\
@@ -378,8 +387,6 @@ for order in Complete_orders:
 lIncomplete_orders = list()
 for order in Incomplete_orders:
     for i in range(len(order.items)):
-        order.items[i][0] = '”' + order.items[i][0] + '”'
-        order.items[i][1] = '”' + str(order.items[i][1]) + '”'
         temp = [order.order_num, \
                 order.items[i][4][0],order.items[i][4][1],order.items[i][4][2],order.items[i][4][3],\
                 order.items[i][4][4],order.items[i][4][5],order.items[i][4][6],order.items[i][4][7],\
@@ -419,26 +426,53 @@ df_incomplete_orders = pd.DataFrame(lIncomplete_orders, columns = field)
 #------------------------------------------------Output-------------------------------------------------------------
 import datetime
 dateTimeObj = datetime.datetime.now()
-timestampStr = dateTimeObj.strftime("%Y%b%d-%H%M%S")#YYYYMMDD-HHMMSS.csv
+timestampStr = dateTimeObj.strftime("")
 
-name_east_file = Output_DCx1_address + 'East_orders' + timestampStr +'.csv'
-name_west_file = Output_DCx1_address + 'West_orders' + timestampStr +'.csv'
-name_incom_file = Output_DCx1_address + 'Incomplete_orders' + timestampStr +'.csv' 
+name_east_file = Output_DCx1_address + '' + timestampStr +'.csv'
+name_west_file = Output_DCx1_address_west + '' + timestampStr +'.csv'
+name_incom_file = Output_DCx1_address + '' + timestampStr +'.csv' 
 
-df_East['Shipping_Order_No'] = '”' + df_East['Shipping_Order_No'].astype(str) + '”'
-df_East['Receiver_Zip_Code'] = '”' + df_East['Receiver_Zip_Code'].astype(str) + '”'
-df_West['Shipping_Order_No'] = '”' + df_West['Shipping_Order_No'].astype(str) + '”'
-df_West['Receiver_Zip_Code'] = '”' + df_West['Receiver_Zip_Code'].astype(str) + '”'
-df_incomplete_orders['Shipping_Order_No'] = '”' + df_incomplete_orders['Shipping_Order_No'].astype(str) + '”'
-df_incomplete_orders['Receiver_Zip_Code'] = '”' + df_incomplete_orders['Receiver_Zip_Code'].astype(str) + '”'
 
 df_East = df_East.drop(columns =['Availability', 'EasrOrWest']) 
 df_West = df_West.drop(columns =['Availability', 'EasrOrWest']) 
 df_incomplete_orders = df_incomplete_orders.drop(columns =['Availability', 'EasrOrWest']) 
 
-df_East.to_csv(name_east_file, index=False, header=None, encoding="shift_jis_2004")
-df_West.to_csv(name_west_file, index=False, header=None, encoding="shift_jis_2004")
-df_incomplete_orders.to_csv(name_incom_file, index=False, header=None, encoding="shift_jis_2004")
+#When there is a NaN value in the columb, other values also turn into a float. hence to change 1.0 values to 1, the following is needed.
+df_East["Data_35"] = df_East["Data_35"].fillna(0).astype(int)
+df_West["Data_35"] = df_West["Data_35"].fillna(0).astype(int)
+
+############################################Split order flag and COD Tags#################################################
+order_nums_east = df_East["Shipping_Order_No"].unique().tolist()
+order_nums_west = df_West["Shipping_Order_No"].unique().tolist()
+
+
+def rise_split_flag(order_num):
+    df_East.loc[df_East["Shipping_Order_No"] == Order_Num, "Data_35"] = 1
+    df_West.loc[df_West["Shipping_Order_No"] == Order_Num, "Data_35"] = 1
+
+def remove_COD_tag_str(CODtag):
+    new_data25_string = CODtag.split("/")
+    CODtag = new_data25_string[0] + "/" + new_data25_string[1] + "/" + "/" + new_data25_string[3] + "/" + new_data25_string[4] #removes the COD tag
+    return CODtag
+
+def remove_ConTax(order_num):
+    df_West.loc[df_West["Shipping_Order_No"] == Order_Num, "Consumption_TAX"] = float("NAN")
+
+
+
+
+for Order_Num in order_nums_east:
+    if Order_Num in order_nums_west:
+        rise_split_flag(Order_Num)  #rises the split flag
+        df_West["Data_25"] = df_West[["Shipping_Order_No","Data_25"]].apply(lambda x: remove_COD_tag_str(x["Data_25"]) if x["Shipping_Order_No"] == Order_Num else x["Data_25"],axis=1)
+        remove_ConTax(Order_Num) #sets consumption TAX to zero
+
+
+##########################################################################################################################
+df_East.to_csv(name_east_file, index=False, header=None, encoding="shift_jis_2004", quoting=csv.QUOTE_ALL)
+df_West.to_csv(name_west_file, index=False, header=None, encoding="shift_jis_2004", quoting=csv.QUOTE_ALL)
+df_incomplete_orders.to_csv(name_incom_file, index=False, header=None, encoding="shift_jis_2004", quoting=csv.QUOTE_ALL)
+
 
 
 
